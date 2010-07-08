@@ -65,7 +65,9 @@
                                 (error 'page "missing `#:id' or `#:title'"))]
                #:link-title [linktitle label]
                #:window-title [wintitle @list{Racket: @label}]
-               #:full-width [full-width #f]
+               ;; can be #f (default), 'full: full page (and no div),
+               ;; otherwise, a css width
+               #:width [width #f]
                #:extra-headers [headers #f]
                #:extra-body-attrs [body-attrs #f]
                #:resources resources ; see below
@@ -78,13 +80,20 @@
   (define (page)
     (let* ([head    (resources 'head wintitle headers)]
            [navbar  (resources 'navbar (or part-of this))]
-           [content (list navbar (if full-width
-                                   content
-                                   (div class: 'bodycontent content)))])
-      @xhtml{@head
+           [content (case width
+                      [(full) content]
+                      [(#f) (div class: 'bodycontent content)]
+                      [else (div class: 'bodycontent
+                                 style: @list{width: @|width|@";"}
+                                 content)])]
+           [content @list{@navbar
+                          @content}])
+      @xhtml{@||
+             @head
              @(if body-attrs
                 (apply body `(,@body-attrs ,content))
-                (body content))}))
+                (body content))
+             @||}))
   (define this (and (not html-only?)
                     (resource (get-path 'plain id file "html" dir)
                               (file-writer output-xml page)
@@ -157,17 +166,21 @@
 
 (define (html-favicon-maker icon)
   (define headers
-    (list @link[rel: "icon" href: icon type: "image/ico"]
-          @link[rel: "shortcut icon" href: icon]))
+    @list{@link[rel: "icon" href: icon type: "image/ico"]
+          @link[rel: "shortcut icon" href: icon]})
   (lambda () headers))
 
 (define (html-head-maker style favicon)
   (define headers
-    (list @meta[name: "generator" content: "Racket"]
+    @list{@meta[name: "generator" content: "Racket"]
           @meta[http-equiv: "Content-Type" content: "text/html; charset=utf-8"]
-          favicon
-          style))
-  (lambda (title* more-headers) (head @title[title*] headers more-headers)))
+          @favicon
+          @style})
+  (lambda (title* more-headers)
+    (head "\n" (title title*)
+          "\n" headers
+          "\n" more-headers
+          (and more-headers (list "\n" more-headers)))))
 
 (define (make-resources icon logo style)
   (let* ([favicon     (html-favicon-maker icon)]
@@ -178,6 +191,9 @@
                [(head)   make-head]
                [(navbar) make-navbar]
                [(favicon-headers) favicon]
+               [(icon-path)  (lambda () (get-resource-path icon))]
+               [(logo-path)  (lambda () (get-resource-path logo))]
+               [(style-path) (lambda () (get-resource-path style))]
                [else (error 'resources "internal error")])
              more))))
 
