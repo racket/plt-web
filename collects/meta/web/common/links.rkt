@@ -1,4 +1,6 @@
-#lang at-exp s-exp meta/web/html
+#lang at-exp racket/base
+
+(require scribble/html)
 
 (define-syntax-rule (define* id E) (begin (define id E) (provide id)))
 
@@ -27,13 +29,13 @@
 ;; External links
 
 (define* -htdp
-  @make-link["http://www.htdp.org/"]{@i{How to Design Programs}})
+  @make-link["http://htdp.org/"]{@i{How to Design Programs}})
 
 (define* -redex
-  @make-link["http://redex.plt-scheme.org/"]{Redex})
+  @make-link["http://redex.racket-lang.org/"]{Redex})
 
-(define* -teachscheme
-  @make-link["http://www.teach-scheme.org/"]{TeachScheme!})
+(define* -pbd
+  @make-link["http://programbydesign.org/"]{Program by Design})
 
 (define* -cookbook
   @make-link["http://schemecookbook.org/"]{Schematics Scheme Cookbook})
