@@ -1,6 +1,7 @@
 #lang at-exp racket/base
 
-(require scribble/html)
+(require scribble/html
+         racket/runtime-path)
 
 ;; These are some resources that are shared across different toplevel
 ;; sites.  They could be included from a single place, but then when one
@@ -13,23 +14,16 @@
 (provide make-resource-files
          navbar-style page-sizes font-family) ; needed for the blog template
 
+(define-runtime-path resources-dir "resources")
+
 ;; robots is passed as #:robots in define-context, and htaccess as #:htaccess;
 ;; they can be #t (the default) for the standard ones, or some text that gets
 ;; added to the standard contents -- which is the user-agent line and the
 ;; ErrorDocument respectively.
-(define (make-resource-files page dir robots htaccess)
+(define (make-resource-files page dir robots htaccess navigation?)
   ;; the default target argument duplicate the behavior in "utils.rkt"
   (define (copyfile file [target (basename file)])
-    (list target (copyfile-resource (in-here file) (web-path dir target))))
-  (define (copydir/flat dir* [target (basename dir*)])
-    (let loop ([dir* (in-here dir*)])
-      (append-map
-       (λ(p) (define path (build-path dir* p))
-             (cond [(file-exists? path)
-                    (define str (path->string p))
-                    `([,str ,(copyfile-resource path (web-path dir str))])]
-                   [(directory-exists? path) (loop path)]))
-       (directory-list dir*))))
+    (list target (copyfile-resource (build-path resources-dir file) (web-path dir target))))
   (define (writefile file . contents)
     (list file (resource (web-path dir file)
                          (file-writer output (list contents "\n")))))
@@ -38,10 +32,22 @@
           (apply page (string->symbol (regexp-replace #rx"[.]html$" file ""))
                  contents)))
   `(,(writefile "plt.css" racket-style)
-    ;; resource files are everything in this directory, copied to the toplevel
-    ;; web directory (if there's ever a name clash, the rendering will throw an
-    ;; error, and this can be changed accordingly)
-    ,@(copydir/flat "resources")
+    ,(copyfile "logo-and-text.png" "logo-and-text.png")
+    ,(copyfile "logo.png" "logo.png") ; a kind of backward compatibility, just in case
+    ,(copyfile "plticon.ico" "plticon.ico")
+    ,@(if navigation?
+          (list
+           (copyfile "css/gumby.css" "gumby.css")
+           (copyfile "js/libs/jquery-1.9.1.min.js" "jquery-1.9.1.min.js")
+           (copyfile "js/plugins.js" "plugins.js")
+           (copyfile "js/libs/gumby.min.js" "gumby.min.js")
+           (copyfile "js/libs/modernizr-2.6.2.min.js" "modernizr-2.6.2.min.js")
+           (copyfile "js/main.js" "main.js")
+           (copyfile "fonts/icons/entypo.ttf" "entypo.ttf")
+           (copyfile "fonts/icons/entypo.woff" "entypo.woff")
+           (copyfile "fonts/icons/entypo.eot" "entypo.eot"))
+          (list
+           (copyfile "css/gumby-slice.css" "gumby-slice.css")))
     ;; the following resources are not used directly, so their names are
     ;; irrelevant
     @,writefile["google5b2dc47c0b1b15cb.html"]{
@@ -54,7 +60,7 @@
             [t (and t (list "User-agent: *\n" t))])
        (if t (writefile "robots.txt" t) '(#f #f)))
     ;; There are still some clients that look for a favicon.ico file
-    ,(copyfile "resources/plticon.ico" "favicon.ico")
+    ,(copyfile "plticon.ico" "favicon.ico")
     @,pagefile["page-not-found.html"]{
       @h3[style: "text-align: center; margin: 3em 0 1em 0;"]{
         Page not found}
@@ -79,55 +85,16 @@
   @list{
     font-family: Optima, Arial, Verdana, Helvetica, sans-serif;
   })
-
 (define navbar-style
-  ;; All of these are made to apply only inside `racketnav', so the styles can
-  ;; be used in places with their own CSS (eg, blog.racket-lang.org)
   @list{
-    .racketnav {
-      background-color: #000000;
-      color: #ffffff;
-      margin-bottom: 1em;
-      padding: 0.5em 0em;
-      white-space: nowrap;
-    }
-    .racketnav a {
-      color: #ffffff;
-      text-decoration: none;
-    }
-    .racketnav .navcontent {
-      @page-sizes
+    .logoname {
       @font-family
-    }
-    .racketnav .navtitle {
-      font-size: xx-large;
+      decoration: none;
+      color: white;
+      font-size: 44px;
       font-weight: bold;
-    }
-    .racketnav .navitem {
-      text-decoration: none;
-      font-size: 88%;
-    }
-    .racketnav .navlink a {
-      padding: 0em 1em;
-    }
-    .racketnav .navcurlink a {
-      padding: 0em 1em;
-      background-color: #555555;
-    }
-    .racketnav .navlink    a:hover,
-    .racketnav .navcurlink a:hover {
-      background-color: #888888;
-    }
-    .racketnav .navlinkcell {
-      text-align: center;
-    }
-    .racketnav .helpiconcell {
-      text-align: right;
-      vertical-align: top;
-    }
-    .racketnav .helpicon {
-      font-weight: bold;
-      font-size: 88%;
+      top: 0;
+      position: absolute;
     }
   })
 
@@ -140,7 +107,6 @@
     body {
       color: black;
       background-color: white;
-      @font-family
       margin: 0px;
       padding: 0px;
     }

@@ -1,7 +1,16 @@
 #lang at-exp racket/base
 
 (require scribble/html racket/dict (for-syntax racket/base syntax/name syntax/parse)
-         "utils.rkt" "resources.rkt")
+         "utils.rkt" "resources.rkt" "private/roots.rkt")
+
+(provide page page*
+         plain plain*
+         copyfile
+         symlink
+         (rename-out [mk-site site])
+         site?
+         site-resources
+         site-dir)
 
 (define-for-syntax (process-contents who layouter stx xs)
   (let loop ([xs xs] [kws '()] [id? #f])
@@ -39,25 +48,28 @@
 ;; for plain text files
 (define-syntax (plain stx)
   (syntax-case stx () [(_ . xs) (process-contents 'plain #'plain* stx #'xs)]))
-(define (plain* #:id [id #f] #:suffix [suffix #f]
-                #:dir [dir #f] #:file [file #f]
+(define (plain* #:site site
+                #:id [id #f] #:suffix [suffix #f]
+                #:file [file #f]
                 #:referrer [referrer values]
                 #:newline [newline? #t]
                 content)
-  (resource/referrer (get-path 'plain id file suffix dir)
+  (resource/referrer (get-path 'plain id file suffix (site-dir site))
                      (file-writer output (list content (and newline? "\n")))
                      referrer))
 
 ;; page layout function
 (define-syntax (page stx)
   (syntax-case stx () [(_ . xs) (process-contents 'page #'page* stx #'xs)]))
-(define (page* #:id [id #f] #:dir [dir #f] #:file [file #f]
+(define (page* #:site site
+               #:id [id #f]
+               #:file [file #f]
                ;; if this is true, return only the html -- don't create
                ;; a resource -- therefore no file is made, and no links
                ;; to it can be made (useful only for stub templates)
                #:html-only [html-only? #f]
                #:title [label (if id
-                                (let* ([id (->string (force id))]
+                                (let* ([id (format "~a" (force id))]
                                        [id (regexp-replace #rx"^.*/" id "")]
                                        [id (regexp-replace #rx"-" id " ")])
                                   (string-titlecase id))
@@ -70,17 +82,17 @@
                #:description [description #f] ; for a meta tag
                #:extra-headers [extra-headers #f]
                #:extra-body-attrs [body-attrs #f]
-               #:resources resources0 ; see below
                #:referrer [referrer
                            (λ (url . more)
                              (a href: url (if (null? more) linktitle more)))]
                ;; will be used instead of `this' to determine navbar highlights
                #:part-of [part-of #f]
                content0)
+  (define dir (site-dir site))
   (define (page)
     (define desc
       (and description (meta name: 'description content: description)))
-    (define resources (force resources0))
+    (define resources (site-resources site))
     (define header
       (let ([headers (resources 'headers)]
             [extras  (if (and extra-headers desc)
@@ -119,37 +131,31 @@
     (case-lambda [(page) (hash-ref t page page)]
                  [(page part-of) (hash-set! t page part-of)])))
 
-(provide set-navbar!)
-(define-syntax-rule (set-navbar! pages top help)
-  (if (unbox navbar-info)
-    ;; since generation is delayed, it won't make sense to change the navbar
-    (error 'set-navbar! "called twice")
-    (set-box! navbar-info (list (lazy pages) (lazy top) (lazy help)))))
+(define (list-ref* l n d)
+  (if ((length l) . > . n)
+      (list-ref l n)
+      d))
 
-(define navbar-info (box #f))
-(define ((navbar-maker logo) this)
+(define ((navbar-maker logo columns) this)
   (define (icon name) @i[class: name]{})
   (define (row . content) (apply div class: "row" content))
   
-  (define download-promise (dict-ref (force (first (unbox navbar-info))) 'download))
-  (define main-promise (force (second (unbox navbar-info))))
+  (define main-promise (resource "www/" #f))
   
-  @div[class: "navbar" gumby-fixed: "top" id: "nav1"]{
+  @div[class: "navbar gumby-content" gumby-fixed: "top" id: "nav1"]{
   @row{
    @a[class: "toggle" gumby-trigger: "#nav1 > .row > ul" href: "#"]{
      @icon{icon-menu}}
    @a[class: "five columns logo" href: (url-of main-promise)]{
-     @img[class: "logo" src: logo]}
+     @img[class: "logo" src: logo width: "198" height: "60" alt: "Racket"]}
    @ul[class: "five columns"]{
-     @li{@a[href: "http://pkg.racket-lang.org"]{Packages}}
-     @li{@a[href: "http://docs.racket-lang.org"]{Documentation}}
-     @li{@a[href: "http://blog.racket-lang.org"]{Blog}}
-     @li{@div[class: "medium metro info btn icon-left entypo icon-install"]{
-       @download-promise}}}}})
+     @li{@(list-ref* columns 0 "")}
+     @li{@(list-ref* columns 1 "")}
+     @li{@(list-ref* columns 2 "")}
+     @li{@(list-ref* columns 3 "")}}}})
 
-(define html-preamble
+(define gumby-preamble
   @list{
-    @doctype['html]
     @; paulirish.com/2008/conditional-stylesheets-vs-css-hacks-answer-neither/
     @comment{[if lt IE 7]> <html class="no-js ie6 oldie" lang="en"> <![endif]}
     @comment{[if IE 7]>    <html class="no-js ie7 oldie" lang="en"> <![endif]}
@@ -159,7 +165,7 @@
              itemscope itemtype="http://schema.org/Product"> <!--<![endif]}
     })
 
-(define (make-html-postamble resources)
+(define (make-gumby-postamble resources)
   @list{
     @||
     @; Grab Google CDN's jQuery, with a protocol relative URL;
@@ -168,7 +174,7 @@
                    "ajax/libs/jquery/1.9.1/jquery.min.js")]
     @script/inline{
       window.jQuery || document.write(@;
-        '<script src="/js/libs/jquery-1.9.1.min.js"><\/script>')}
+        '<script src=@(resources "jquery-1.9.1.min.js")><\/script>')}
     @script[src: (resources "gumby.min.js")]
     @script[src: (resources "plugins.js")]
     @script[src: (resources "main.js")]
@@ -181,7 +187,7 @@
   @list{@link[rel: "icon"          href: icon type: "image/ico"]
         @link[rel: "shortcut icon" href: icon type: "image/x-icon"]})
 
-(define (html-headers resources favicon)
+(define (html-headers resources favicon page-style?)
   (define style (resources 'style-path))
   @list{
     @meta[name: "generator" content: "Racket"]
@@ -199,7 +205,9 @@
     @; @link[rel: "stylesheet" href="css/minified.css"]
     @; CSS imports non-minified for staging, minify before moving to
     @;   production
-    @link[rel: "stylesheet" href: (resources "gumby.css")]
+    @(if page-style?
+         @link[rel: "stylesheet" href: (resources "gumby.css")]
+         @link[rel: "stylesheet" href: (resources "gumby-slice.css")])
     @;@link[rel: "stylesheet" href: (resources "style.css")]
     @; TODO: Modify `racket-style' definition (and what it depends on)
     @;   in "resources.rkt", possibly do something similar with the new files
@@ -211,21 +219,23 @@
     @;   a polyfill for min/max-width CSS3 Media Queries
     @; For optimal performance, use a custom Modernizr build:
     @;   www.modernizr.com/download/
-    @script[src: (resources "modernizr-2.6.2.min.js")]
+    @(if page-style?
+         @script[src: (resources "modernizr-2.6.2.min.js")]
+         null)
     })
 
-(define (make-resources files)
+(define (make-resources files navigation page-style?)
   (define (resources what)
     (case what
       ;; composite resources
-      [(preamble)     html-preamble] ; not really a resource, since it's static
-      [(postamble)    html-postamble]
+      [(preamble)     preamble]
+      [(postamble)    postamble]
       [(headers)      headers]
       [(make-navbar)  make-navbar] ; page -> navbar
       [(icon-headers) icon-headers]
       ;; aliases for specific resource files
       [(style-path) (resources "plt.css")]
-      [(logo-path)  (resources "logo.png")]
+      [(logo-path)  (resources "logo-and-text.png")]
       [(icon-path)  (resources "plticon.ico")]
       ;; get a resource file path
       [else (cond [(assoc what files)
@@ -233,55 +243,50 @@
                    => (λ(f) (λ() (url-of (cadr f))))]
                   [else (error 'resource "unknown resource: ~e" what)])]))
   (define icon-headers   (html-icon-headers (resources 'icon-path)))
-  (define headers        (html-headers resources icon-headers))
-  (define make-navbar    (navbar-maker (resources 'logo-path)))
-  (define html-postamble (make-html-postamble resources))
+  (define headers        (html-headers resources icon-headers page-style?))
+  (define make-navbar    (navbar-maker (resources 'logo-path) navigation))
+  (define preamble (cons @doctype['html]
+                         (if page-style? gumby-preamble null)))
+  (define postamble (if page-style? (make-gumby-postamble resources) null))
   resources)
 
-;; `define+provide-context' should be used in each toplevel directory (= each
-;; site) to have its own resources (and possibly other customizations).
-(provide define+provide-context define-context)
-(define-for-syntax (make-define+provide-context stx provide?)
-  (syntax-parse stx
-    [(_ (~or (~optional dir:expr)
-             (~optional (~seq #:resources resources))
-             (~optional (~seq #:robots robots) #:defaults ([robots #'#t]))
-             (~optional (~seq #:htaccess htaccess) #:defaults ([htaccess #'#t])))
-        ...)
-     (unless (attribute dir)
-       (raise-syntax-error 'define-context "missing <dir>"))
-     (with-syntax ([page-id      (datum->syntax stx 'page)]
-                   [plain-id     (datum->syntax stx 'plain)]
-                   [copyfile-id  (datum->syntax stx 'copyfile)]
-                   [symlink-id   (datum->syntax stx 'symlink)]
-                   [resources-id (datum->syntax stx 'the-resources)])
-       (with-syntax ([provides   (if provide?
-                                   #'(provide page-id plain-id copyfile-id
-                                              symlink-id resources-id)
-                                   #'(begin))]
-                     [resources
-                      (or (attribute resources)
-                          #'(make-resources
-                             (make-resource-files
-                              (λ (id . content)
-                                (page* #:id id #:dir dir
-                                       #:resources (lazy resources-id)
-                                       content))
-                              dir robots htaccess)))])
-         #'(begin
-             (define resources-id resources)
-             (define-syntax-rule (page-id . xs)
-               (page #:resources resources-id #:dir dir . xs))
-             (define-syntax-rule (plain-id . xs)
-               (plain #:dir dir . xs))
-             (define copyfile-id
-               (case-lambda [(s)   (copyfile-resource s #:dir dir)]
-                            [(s t) (copyfile-resource s t #:dir dir)]))
-             (define symlink-id
-               (case-lambda [(s)   (symlink-resource s #:dir dir)]
-                            [(s t) (symlink-resource s t #:dir dir)]))
-             provides)))]))
-(define-syntax (define+provide-context stx)
-  (make-define+provide-context stx #t))
-(define-syntax (define-context stx)
-  (make-define+provide-context stx #f))
+(define (copyfile #:site site s [t (basename s)])
+  (copyfile-resource s t #:dir (site-dir site)))
+(define (symlink #:site site s [t (basename s)])
+  (symlink-resource s t #:dir (site-dir site)))
+
+(struct site (dir resources-promise)
+  #:constructor-name make-site)
+
+(define (site-resources s)
+  (force (site-resources-promise s)))
+
+(define mk-site
+  (let ([site
+         (lambda (dir
+                  #:url [url #f]
+                  #:robots [robots #t]
+                  #:htaccess [htaccess #t]
+                  #:navigation [navigation null]
+                  #:page-style? [page-style? #t]
+                  #:resources [resources #f])
+           (when url
+             (extra-roots (cons (list dir url)
+                                (extra-roots))))
+           (define the-site
+             (make-site dir (delay
+                              (or resources
+                                  (make-resources
+                                   (make-resource-files
+                                    (λ (id . content)
+                                      (page* #:id id
+                                             #:site the-site
+                                             content))
+                                    dir robots htaccess
+                                    (or page-style?
+                                        (pair? navigation)))
+                                   navigation
+                                   page-style?)))))
+           the-site)])
+    site))
+

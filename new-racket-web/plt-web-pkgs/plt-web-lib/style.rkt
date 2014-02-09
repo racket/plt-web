@@ -1,4 +1,4 @@
-#lang meta/web
+#lang plt-web
 
 (provide (all-defined-out))
 
@@ -24,3 +24,7 @@
                                          (list " push_" (print-num push))))
                    body))
   (if row? (row d) d))
+
+(define (navigation-button c)
+   @div[class: "medium metro info btn icon-left entypo icon-install"]{@c})
+

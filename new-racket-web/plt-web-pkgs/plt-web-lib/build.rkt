@@ -1,18 +1,12 @@
-#!/bin/sh
-#| -*- scheme -*-
-exe="racket";
-if [ -x "$PLTHOME/bin/racket" ]; then exe="$PLTHOME/bin/racket"; fi
-exec "$exe" "$0" "$@"
-|#
-
 #lang racket/base
 
 (require racket/cmdline racket/runtime-path racket/file scribble/html
-         "common/distribute.rkt" "config.rkt" "all.rkt")
+         pkg/path
+         "config.rkt"
+         "private/roots.rkt")
 
-(define build-mode #f)
+(define build-mode 'web)
 (define output-dir (current-directory))
-(define distribute? #f)
 (define warn? #t)
 (define extra-files '())
 
@@ -23,7 +17,7 @@ exec "$exe" "$0" "$@"
   "  (all links are relative) "
   (set! build-mode 'local)]
  [("-w" "--web")
-  "web mode: create content that is viewable on the Racket web pages"
+  "web mode: create content that is viewable via HTTP"
   (set! build-mode 'web)]
  #:once-each
  [("-o" "--output") dir
@@ -35,28 +29,23 @@ exec "$exe" "$0" "$@"
  [("-f" "--force")
   "avoid warning about directory cleanup"
   (set! warn? #f)]
- [("-d" "--dist")
-  "distribute resulting content"
-  "  (will only work with the right access to the servers)"
-  (set! distribute? #t)]
  #:multi
- [("-e" "--extra") extra
+ [("+e" "++extra") extra
   "extra file to render more content"
-  (set! extra-files (cons extra extra-files))]
- #:help-labels
- " ** Note: set $KNOWN_MIRRORS_FILE to a file if you want to poll mirror"
- "          links (see top comment in \"download/mirror-link.rkt\").")
+  (set! extra-files (cons extra extra-files))])
 
 (unless build-mode (raise-user-error 'build "build mode not specified"))
 
-(define-runtime-path here ".")
-(let ([build (file-or-directory-identity output-dir)])
-  (let loop ([dir here])
-    (if (equal? build (file-or-directory-identity dir))
-      (raise-user-error 'build
-                        "might clobber sources, refusing to build (use `-o')")
-      (let-values ([(base name dir?) (split-path dir)])
-        (when base (loop base))))))
+(let ([cache (make-hash)])
+  (define (check-dest p)
+    (when (path->pkg p #:cache cache)
+      (raise-user-error
+       'plt-web
+       "destination overlaps with package directories, refusing to build (use `-o')")))
+  (check-dest output-dir)
+  (for ([p (in-directory output-dir)])
+    (when (directory-exists? p)
+      (check-dest p))))
 
 (parameterize ([current-directory output-dir])
   (define paths (sort (map path->string (directory-list)) string<?))
@@ -70,14 +59,14 @@ exec "$exe" "$0" "$@"
       (raise-user-error 'build "Aborting."))))
 
 (printf "Building ~a content...\n" build-mode)
-(parameterize ([url-roots (and (eq? 'web build-mode) sites)])
+(parameterize ([url-roots (if (eq? 'web build-mode)
+                              (append (extra-roots)
+                                      sites)
+                              (url-roots))])
   (for ([extra (in-list extra-files)])
     (if (file-exists? extra)
       (dynamic-require `(file ,extra) #f)
       (printf "  ignoring missing extra file: ~a\n" extra)))
   (parameterize ([current-directory output-dir])
-    (render-all)
-    (when distribute?
-      (printf "Distributing...\n")
-      (distribute (distributions)))))
+    (render-all)))
 (printf "Done.\n")
