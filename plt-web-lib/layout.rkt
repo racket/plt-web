@@ -140,6 +140,11 @@
       (list-ref l n)
       d))
 
+(define (maybe-li v)
+  (if v
+      @li[v]
+      null))
+
 (define ((navbar-content logo columns page-style?))
   (define (icon name) @i[class: name]{})
   (define (row . content) (apply div class: "row" content))  
@@ -153,10 +158,10 @@
      @img[class: "logo" src: logo width: "198" height: "60" alt: "Racket"]}
    @span[class: "one colums"]{} @; just spacing
    @ul[class: "five columns"]{
-     @li{@(list-ref* columns 0 "")}
-     @li{@(list-ref* columns 1 "")}
-     @li{@(list-ref* columns 2 "")}
-     @li{@(list-ref* columns 3 "")}}})
+     @maybe-li{@(list-ref* columns 0 #f)}
+     @maybe-li{@(list-ref* columns 1 #f)}
+     @maybe-li{@(list-ref* columns 2 #f)}
+     @maybe-li{@(list-ref* columns 3 #f)}}})
 
 (define ((navbar-maker logo columns page-style?) this)
   (list
