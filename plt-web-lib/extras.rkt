@@ -113,7 +113,7 @@
         (if sub?
           (set! subsections (cons title subsections))
           (set! sections    (cons title sections))))
-      ((if sub? h2 h1)
+      ((if sub? h3 h2)
        (a name: label
           style: (and newpage? (pair? (cdr sections))
                       "page-break-before: always;")
@@ -121,12 +121,14 @@
   (values (add-section #f) (add-section #t)
           (and toc? (λ () (collect-subs) (->li/reverse sections)))))
 (define-syntax (sections stx)
-  (define (make-it stx args)
+  (define (make-it stx wrap args)
     (with-syntax ([sec (datum->syntax stx 'section)]
                   [sub (datum->syntax stx 'subsection)]
-                  [(x ...) args])
+                  [(x ...) args]
+                  [(wrap ...) wrap])
       #'(begin (define-values [sec sub toc] (make-sectioner x ...))
-               toc)))
+               (wrap ... toc))))
   (syntax-case stx ()
-    [(s x ...)           (make-it #'s #'(x ...))]
-    [_ (identifier? stx) (make-it stx #'())]))
+    [(s #:wrap (wrap ...) x ...)           (make-it #'s #'(wrap ...) #'(x ...))]
+    [(s x ...)           (make-it #'s #'(values) #'(x ...))]
+    [_ (identifier? stx) (make-it stx #'(values) #'())]))
