@@ -187,7 +187,7 @@
     @||
     @; Grab Google CDN's jQuery, with a protocol relative URL;
     @;   fall back to local if offline
-    @script[src: '("http://ajax.googleapis.com/"
+    @script[src: '("https://ajax.googleapis.com/"
                    "ajax/libs/jquery/1.9.1/jquery.min.js")]
     @script/inline{
       window.jQuery || document.write(@;
