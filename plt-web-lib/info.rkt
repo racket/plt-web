@@ -9,3 +9,5 @@
 (define deps '("base"
                "at-exp-lib"
                "scribble-html-lib"))
+
+(define version "1.1")
