@@ -1,7 +1,8 @@
 #lang at-exp racket/base
 
 (require scribble/html
-         racket/runtime-path)
+         racket/runtime-path
+         "private/image-version.rkt")
 
 ;; These are some resources that are shared across different toplevel
 ;; sites.  They could be included from a single place, but then when one
@@ -38,12 +39,13 @@
                      contents)
               (resource (web-path dir file) #f))))
   `(,@(if (not sharing?)
-          (list (copyfile "logo-and-text.png" "logo-and-text.png"))
+          (list (copyfile (format "logo-and-text~a.png" (image-version-suffix))
+                          (format "logo-and-text~a.png" (image-version-suffix))))
           null)
     ,@(if (and page-style?
                (not sharing?))
           (list
-           (copyfile "css/gumby.css" "gumby.css")
+           (copyfile (format "css/gumby~a.css" (image-version-suffix)) (format "gumby~a.css" (image-version-suffix)))
            (copyfile "js/libs/jquery-1.9.1.min.js" "jquery-1.9.1.min.js")
            (copyfile "js/plugins.js" "plugins.js")
            (copyfile "js/libs/gumby.min.js" "gumby.min.js")
@@ -61,7 +63,7 @@
     ,@(if (and page-style?
                (not sharing?))
           (list
-           (copyfile "plticon.ico" "plticon.ico")
+           (copyfile (format "plticon~a.ico" (image-version-suffix)) (format "plticon~a.ico" (image-version-suffix)))
            (copyfile "logo.png" "logo.png")) ; a kind of backward compatibility, just in case
           null)
     ,@(if meta?
@@ -71,7 +73,7 @@
                   [t (and t (list "User-agent: *\n" t))])
              (if t (writefile "robots.txt" t) '(#f #f)))
            ;; There are still some clients that look for a favicon.ico file
-           (copyfile "plticon.ico" "favicon.ico")
+           (copyfile (format "plticon~a.ico" (image-version-suffix)) "favicon.ico")
            @pagefile["page-not-found.html"]{
              @h3[style: "text-align: center; margin: 3em 0 1em 0;"]{
                Page not found}

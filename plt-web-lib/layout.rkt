@@ -1,7 +1,7 @@
 #lang at-exp racket/base
 
 (require scribble/html racket/dict (for-syntax racket/base syntax/name syntax/parse)
-         "utils.rkt" "resources.rkt" "private/roots.rkt")
+         "utils.rkt" "resources.rkt" "private/roots.rkt" "private/image-version.rkt")
 
 (provide page page*
          plain plain*
@@ -252,11 +252,11 @@
       ;; aliases for specific resource files
       [(style-path) (recur/share 
                      (if page-style?
-                         "gumby.css"
+                         (format "gumby~a.css" (image-version-suffix))
                          "gumby-slice.css"))]
-      [(logo-path)  (recur/share "logo-and-text.png")]
+      [(logo-path)  (recur/share (format "logo-and-text~a.png" (image-version-suffix)))]
       [(icon-path)  (and page-style?
-                         (recur/share "plticon.ico"))]
+                         (recur/share (format "plticon~a.ico" (image-version-suffix))))]
       ;; get a resource file path
       [else (cond [(assoc what files)
                    ;; delay the `url-of' until we're in the rendering context
