@@ -253,7 +253,7 @@
       [(style-path) (recur/share 
                      (if page-style?
                          (format "gumby~a.css" (image-version-suffix))
-                         "gumby-slice.css"))]
+                         (format "gumby-slice~a.css"  (image-version-suffix))))]
       [(logo-path)  (recur/share (format "logo-and-text~a.png" (image-version-suffix)))]
       [(icon-path)  (and page-style?
                          (recur/share (format "plticon~a.ico" (image-version-suffix))))]

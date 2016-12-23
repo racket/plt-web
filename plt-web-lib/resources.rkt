@@ -58,7 +58,8 @@
     ,@(if (not sharing?)
           ;; Not used in `page-style?` mode, but available for sharing
           ;; for non-`page-style?` sites:
-          (list (copyfile "css/gumby-slice.css" "gumby-slice.css"))
+          (list (copyfile (format "css/gumby-slice~a.css" (image-version-suffix))
+                          (format "gumby-slice~a.css" (image-version-suffix))))
           null)
     ,@(if (and page-style?
                (not sharing?))
