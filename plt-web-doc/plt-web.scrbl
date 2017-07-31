@@ -227,7 +227,10 @@ site root.}
 @defproc[(index-site [site site?]) index-site?]
 @defproc[(index-page [isite index-site?]
                      [path (or/c 'same relative-path?)]
-                     [content (listof (cons/c path-string? (or/c exact-integer? 'dir)))]
+                     [content (listof
+                               (or/c (cons/c path-string? (or/c exact-integer? 'dir))
+                                     (cons/c path-string?
+                                             (cons/c string? (or/c exact-integer? 'dir)))))]
                      [#:html-only? html-only? any/c #f])
          outputable/c]
 )]{
@@ -237,10 +240,16 @@ The @racket[index-page] function registers an individual
 @racket[html-only?] is true) for the given index site, where an index
 site is created once for a given site (to register support
 resources, such as icons). The @filepath{index.html} file is
-generated for the subdirectory indicated by @racket[path]. The index
-file lists the content specified by @racket[content], where
-an integer corresponds to a file size and @racket['dir] indicates
-a directory.}
+generated for the subdirectory indicated by @racket[path].
+
+The index file lists the content specified by @racket[content]. For
+each element of @racket[content], the initial path string is the item
+as shown on the page, and an ending integer corresponds to a file size
+or and ending @racket['dir] indicates a directory. If an extra string
+is provided, then the content link is redirected to the string as a
+URL, otherwise the link is the same as the name shown on the page.
+
+@history[#:changed "1.3" @elem{Added the redirection option in @racket[content].}]}
 
 @defproc[(call-with-registered-roots [thunk (-> any)]) any]{
 

@@ -24,13 +24,18 @@
         #:title "Index"
         #:html-only? html-only?
         @columns[10 #:row? #t]{
-              @table{@(for/list ([p+k (in-list content)])
-                        (define p (let ([p (car p+k)])
+              @table{@(for/list ([p+...k (in-list content)])
+                        (define p (let ([p (car p+...k)])
                                     (if (path? p)
                                         (path->string p)
                                         p)))
-                        (define k (cdr p+k))
-                        @tr{@td{@a[href: p]{@;
+                        (define dest (if (pair? (cdr p+...k))
+                                         (cadr p+...k)
+                                         p))
+                        (define k (if (pair? (cdr p+...k))
+                                      (cddr p+...k)
+                                      (cdr p+...k)))
+                        @tr{@td{@a[href: dest]{@;
                                  @img[src: (if (number? k)
                                               (index-site-file-icon is)
                                               (index-site-folder-icon is))
