@@ -147,15 +147,22 @@
 
 (define ((navbar-content logo columns page-style?))
   (define (icon name) @i[class: name]{})
-  (define (row . content) (apply div class: "row" content))  
+  (define (row . content) (apply div class: "row" content))
+  (define (logo-ref key default) (if (hash? logo)
+                                     (hash-ref logo key default)
+                                     default))
   (define main-promise (resource "www/" #f))
   @row{
    @(if page-style?
          @a[class: "toggle" gumby-trigger: "#nav1 > .row > ul" href: "#"]{
             @icon{icon-menu}}
          '())
-   @a[class: "four columns logo" href: (url-of main-promise)]{
-     @img[class: "logo" src: logo width: "198" height: "60" alt: "Racket"]}
+   @a[class: "four columns logo" href: (logo-ref 'href (url-of main-promise))]{
+     @img[class: "logo"
+           src: (logo-ref 'src (if (hash? logo) "logo.png" logo))
+           width: (format "~a" (logo-ref 'width 198))
+           height: (format "~a" (logo-ref 'height 60))
+           alt: (logo-ref 'alt "Racket")]}
    @span[class: "one colums"]{} @; just spacing
    @ul[class: "five columns"]{
      @maybe-li{@(list-ref* columns 0 #f)}
@@ -234,7 +241,8 @@
          null)
     })
 
-(define (make-resources files navigation page-style? extra-headers sharing-site)
+(define (make-resources files navigation page-style? extra-headers sharing-site
+                        #:logo [logo #f])
   (define (recur/share what)
     (if sharing-site
         ((site-resources sharing-site) what)
@@ -265,8 +273,8 @@
                   [else (error 'resource "unknown resource: ~e" what)])]))
   (define icon-headers   (html-icon-headers (resources 'icon-path)))
   (define headers        (list (html-headers resources icon-headers page-style?) extra-headers))
-  (define make-navbar    (navbar-maker (resources 'logo-path) navigation page-style?))
-  (define make-navbar-content (navbar-content (resources 'logo-path) navigation page-style?))
+  (define make-navbar    (navbar-maker (or logo (resources 'logo-path)) navigation page-style?))
+  (define make-navbar-content (navbar-content (or logo (resources 'logo-path)) navigation page-style?))
   (define preamble (cons @doctype['html]
                          (if page-style? gumby-preamble null)))
   (define postamble (if page-style? (make-gumby-postamble resources) null))
@@ -295,7 +303,8 @@
                   #:page-style? [page-style? #t]
                   #:meta? [meta? page-style?]
                   #:share-from [given-sharing-site #f]
-                  #:generate? [generate? #t])
+                  #:generate? [generate? #t]
+                  #:logo [logo #f])
            (when url
              (registered-url-roots (cons (list* dir
                                                 url
@@ -325,7 +334,8 @@
                                navigation
                                page-style?
                                headers
-                               sharing-site))))
+                               sharing-site
+                               #:logo logo))))
            the-site)])
     site))
 
