@@ -242,7 +242,8 @@
     })
 
 (define (make-resources files navigation page-style? extra-headers sharing-site
-                        #:logo [logo #f])
+                        #:logo [logo #f]
+                        #:icon-headers [icon-headers-in #f])
   (define (recur/share what)
     (if sharing-site
         ((site-resources sharing-site) what)
@@ -271,7 +272,8 @@
                    => (λ(f) (λ() (url-of (cadr f))))]
                   [sharing-site (recur/share what)]
                   [else (error 'resource "unknown resource: ~e" what)])]))
-  (define icon-headers   (html-icon-headers (resources 'icon-path)))
+  (define icon-headers   (or icon-headers-in
+                             (html-icon-headers (resources 'icon-path))))
   (define headers        (list (html-headers resources icon-headers page-style?) extra-headers))
   (define make-navbar    (navbar-maker (or logo (resources 'logo-path)) navigation page-style?))
   (define make-navbar-content (navbar-content (or logo (resources 'logo-path)) navigation page-style?))
@@ -304,7 +306,8 @@
                   #:meta? [meta? page-style?]
                   #:share-from [given-sharing-site #f]
                   #:generate? [generate? #t]
-                  #:logo [logo #f])
+                  #:logo [logo #f]
+                  #:icon-headers [icon-headers #f])
            (when url
              (registered-url-roots (cons (list* dir
                                                 url
@@ -335,7 +338,8 @@
                                page-style?
                                headers
                                sharing-site
-                               #:logo logo))))
+                               #:logo logo
+                               #:icon-headers icon-headers))))
            the-site)])
     site))
 
